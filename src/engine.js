@@ -1186,6 +1186,81 @@ function removePdfPageSpacers(content) {
   })
 }
 
+function wrapPdfBracketLabels(content) {
+  const bracketPattern = /【[^【】\r\n]*】/g
+  const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT)
+  const textNodes = []
+  let textNode = walker.nextNode()
+
+  while (textNode) {
+    const excluded = textNode.parentElement?.closest(
+      'pre, code, script, style, svg, canvas, .mermaid, [data-pdf-bracket-label]'
+    )
+    if (!excluded && bracketPattern.test(textNode.textContent || '')) textNodes.push(textNode)
+    bracketPattern.lastIndex = 0
+    textNode = walker.nextNode()
+  }
+
+  textNodes.forEach(node => {
+    const text = node.textContent || ''
+    const fragment = document.createDocumentFragment()
+    let lastIndex = 0
+    bracketPattern.lastIndex = 0
+
+    for (const match of text.matchAll(bracketPattern)) {
+      if (match.index > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)))
+      }
+
+      const label = document.createElement('span')
+      label.dataset.pdfBracketLabel = 'true'
+      label.setAttribute('aria-label', match[0])
+      Object.assign(label.style, {
+        display: 'inline-flex',
+        flexWrap: 'nowrap',
+        whiteSpace: 'nowrap',
+        alignItems: 'baseline',
+        verticalAlign: 'baseline',
+        letterSpacing: '0',
+        wordSpacing: '0',
+        fontKerning: 'none',
+        fontVariantLigatures: 'none',
+        fontFamily: "'Microsoft YaHei', 'Noto Sans SC', 'PingFang SC', sans-serif"
+      })
+
+      for (const character of match[0]) {
+        const glyph = document.createElement('span')
+        glyph.textContent = character
+        glyph.setAttribute('aria-hidden', 'true')
+        Object.assign(glyph.style, {
+          display: 'inline-block',
+          flex: '0 0 auto',
+          width: 'auto',
+          minWidth: '0',
+          letterSpacing: '0'
+        })
+        label.appendChild(glyph)
+      }
+
+      fragment.appendChild(label)
+      lastIndex = match.index + match[0].length
+    }
+
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)))
+    }
+    node.replaceWith(fragment)
+  })
+}
+
+function unwrapPdfBracketLabels(content) {
+  content.querySelectorAll('[data-pdf-bracket-label]').forEach(label => {
+    const parent = label.parentNode
+    label.replaceWith(document.createTextNode(label.getAttribute('aria-label') || label.textContent || ''))
+    parent?.normalize()
+  })
+}
+
 function getHeadingIntervals(layout, padding = 8) {
   return layout.keepTogetherBlocks
     .filter(block => block.node?.matches('h1, h2, h3, h4, h5, h6'))
@@ -1523,6 +1598,7 @@ async function exportToPDF() {
 
   try {
     console.log('[ReadMarkdownDebug] exportToPDF start: fill mermaid to canvas')
+    wrapPdfBracketLabels(content)
     fillAllMermaidToCanvas(content)
     refreshAllMermaidOverlays(content)
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
@@ -1627,6 +1703,7 @@ async function exportToPDF() {
     alert(`导出 PDF 失败：${error.message}`)
   } finally {
     removePdfPageSpacers(content)
+    unwrapPdfBracketLabels(content)
     content.style.height = previous.height
     content.style.maxHeight = previous.maxHeight
     content.style.overflow = previous.overflow
