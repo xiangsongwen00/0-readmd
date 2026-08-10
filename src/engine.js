@@ -1397,6 +1397,107 @@ function buildSafePageBreaks(contentHeight, usableHeight, layout) {
   return breaks
 }
 
+function getSafeCanvasRows(imageData, width, height) {
+  const { data } = imageData
+  const safeRows = new Array(height).fill(true)
+  const xStart = Math.floor(width * 0.025)
+  const xEnd = Math.ceil(width * 0.975)
+  const step = 2
+  const samples = Math.max(1, Math.ceil((xEnd - xStart) / step))
+  const inkLimit = Math.max(8, Math.floor(samples * 0.008))
+
+  for (let y = 0; y < height; y++) {
+    let darkPixels = 0
+    let colorEdges = 0
+    let previousR = -1
+    let previousG = -1
+    let previousB = -1
+
+    for (let x = xStart; x < xEnd; x += step) {
+      const index = (y * width + x) * 4
+      const r = data[index]
+      const g = data[index + 1]
+      const b = data[index + 2]
+      const alpha = data[index + 3]
+      if (alpha > 16) {
+        const luminance = r * 0.2126 + g * 0.7152 + b * 0.0722
+        if (luminance < 170) darkPixels += 1
+        if (
+          previousR >= 0 &&
+          Math.abs(r - previousR) + Math.abs(g - previousG) + Math.abs(b - previousB) > 72
+        ) {
+          colorEdges += 1
+        }
+      }
+      previousR = r
+      previousG = g
+      previousB = b
+    }
+
+    safeRows[y] = darkPixels <= inkLimit && colorEdges <= inkLimit
+  }
+
+  return safeRows
+}
+
+function findCanvasSafeBreak(canvas, pageStart, idealEnd, ratio) {
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  const safeBandHeight = Math.max(8, Math.ceil(5 * ratio))
+  const minPageContent = Math.max(safeBandHeight, Math.ceil(80 * ratio))
+  const earliestBreak = Math.min(idealEnd - 1, pageStart + minPageContent)
+  const chunkHeight = 520
+  let chunkEnd = idealEnd
+
+  while (chunkEnd > earliestBreak) {
+    const chunkStart = Math.max(earliestBreak, chunkEnd - chunkHeight)
+    const height = chunkEnd - chunkStart
+    const imageData = context.getImageData(0, chunkStart, canvas.width, height)
+    const safeRows = getSafeCanvasRows(imageData, canvas.width, height)
+
+    for (let localY = height - safeBandHeight; localY >= 0; localY--) {
+      let bandIsSafe = true
+      for (let bandY = 0; bandY < safeBandHeight; bandY++) {
+        if (!safeRows[localY + bandY]) {
+          bandIsSafe = false
+          break
+        }
+      }
+      if (bandIsSafe) {
+        return chunkStart + localY + Math.floor(safeBandHeight / 2)
+      }
+    }
+
+    // 保留一个安全带高度的重叠区域，避免空白带恰好跨越两个扫描块。
+    chunkEnd = chunkStart + safeBandHeight - 1
+  }
+
+  return null
+}
+
+// 最终断点直接依据 html2canvas 的真实像素计算，不再假设 DOM 行框与截图
+// 坐标完全一致。只有检测到连续的无文字水平空白带时才允许切页。
+function buildCanvasPageBreaks(canvas, usablePageHeightPx, ratio) {
+  const breaks = [0]
+  let pageStart = 0
+
+  while (pageStart < canvas.height - 1) {
+    const idealEnd = Math.min(canvas.height, pageStart + usablePageHeightPx)
+    if (idealEnd >= canvas.height) {
+      breaks.push(canvas.height)
+      break
+    }
+
+    const safeBreak = findCanvasSafeBreak(canvas, pageStart, idealEnd, ratio)
+    if (safeBreak === null || safeBreak <= pageStart) {
+      throw new Error(`第 ${breaks.length} 页找不到无文字的截图裁切位置`)
+    }
+    breaks.push(safeBreak)
+    pageStart = safeBreak
+  }
+
+  return breaks
+}
+
 // 导出 PDF
 async function exportToPDF() {
   const content = document.getElementById('content')
@@ -1466,27 +1567,20 @@ async function exportToPDF() {
     })
 
     const contentHeight = content.scrollHeight
-    const paginationLayout = getPaginationLayout(content)
     const pageHeightPx = Math.floor((canvas.width * pageHeight) / pageWidth)
     const ratio = canvas.height / contentHeight
     const pageMarginPx = Math.floor(pageMargin * ratio)
     const usablePageHeightPx = pageHeightPx - pageMarginPx * 2
-    // 以最终 canvas 的真实像素比例重新计算分页，消除截图取整造成的累计偏差。
-    // 再预留 1 个 canvas 像素，保证 floor 坐标换算不会让切片偶发多出 1px。
-    const exactUsablePageHeightDom = (usablePageHeightPx - 1) / ratio
-    const breaks = buildSafePageBreaks(
-      contentHeight,
-      exactUsablePageHeightDom,
-      paginationLayout
-    )
+    // 直接使用最终截图像素计算断点，彻底避开 DOM 与 canvas 坐标偏差。
+    const breaks = buildCanvasPageBreaks(canvas, usablePageHeightPx - 1, ratio)
 
     const pageCanvas = document.createElement('canvas')
     const pageCtx = pageCanvas.getContext('2d')
     let pageIndex = 0
 
     for (let i = 0; i < breaks.length - 1; i++) {
-      const offsetY = Math.floor(breaks[i] * ratio)
-      const sliceEndY = Math.floor(breaks[i + 1] * ratio)
+      const offsetY = breaks[i]
+      const sliceEndY = breaks[i + 1]
       const sliceHeight = sliceEndY - offsetY
       if (sliceHeight > usablePageHeightPx) {
         throw new Error(`第 ${i + 1} 页截图高度超过页面可用区域`)
