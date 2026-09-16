@@ -2,7 +2,7 @@
  * @Author: yangjie
  * @Date: 2026-05-26 15:23:44
  * @LastEditors: yangjie 
- * @LastEditTime: 2026-06-05 15:29:01
+ * @LastEditTime: 2026-09-16 14:36:48
  * @FilePath: \0-readmd\vite.config.js
  * @Description: 
  * 
@@ -14,7 +14,7 @@ import { resolve } from 'path'
 export default defineConfig({
   base: './',
   server: {
-    port: 7055,
+    port: 8899,
     fs: {
       allow: ['..']
     }
@@ -28,7 +28,7 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, 'test/index.html')
+      input: resolve(__dirname, 'index.html')
     }
   }
 })

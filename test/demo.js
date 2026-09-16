@@ -8,6 +8,8 @@ const fileInput = document.getElementById('file-input')
 const openPickerButton = document.getElementById('open-picker')
 const globalDropTip = document.getElementById('global-drop-tip')
 
+const SERVER_DOC_PATH = `${import.meta.env.BASE_URL}mdData/API文档.md`
+
 const state = {
   engine: null,
   dragDepth: 0
@@ -25,6 +27,19 @@ function isMarkdownFile(file) {
   const name = file?.name || ''
   const type = file?.type || ''
   return /\.md$/i.test(name) || type === 'text/markdown' || type === 'text/plain'
+}
+
+async function loadServerDoc() {
+  const response = await fetch(SERVER_DOC_PATH)
+  if (!response.ok) {
+    throw new Error(`服务器文档加载失败: ${response.status}`)
+  }
+
+  return {
+    path: SERVER_DOC_PATH,
+    label: 'API文档',
+    content: await response.text()
+  }
 }
 
 async function filesToDocs(files) {
@@ -64,15 +79,18 @@ function setDropZoneActive(active) {
 }
 
 async function renderFromFiles(files) {
-  const docs = await filesToDocs(files)
+  const localDocs = await filesToDocs(files)
   console.log('[ReadMarkdownDebug] files selected', {
     totalFiles: files?.length || 0,
-    markdownFiles: docs.length
+    markdownFiles: localDocs.length
   })
-  if (!docs.length) {
+  if (!localDocs.length) {
     alert('\u672a\u8bfb\u53d6\u5230\u53ef\u7528\u7684 Markdown \u6587\u4ef6\uff08.md\uff09')
     return
   }
+
+  const serverDoc = await loadServerDoc()
+  const docs = [...localDocs, serverDoc]
 
   if (!state.engine) {
     state.engine = createMarkdownEngine({
@@ -86,6 +104,21 @@ async function renderFromFiles(files) {
 
   showViewer()
   console.log('[ReadMarkdownDebug] viewer shown')
+}
+
+async function renderDefaultDoc() {
+  try {
+    const serverDoc = await loadServerDoc()
+    state.engine = createMarkdownEngine({
+      container: '#app',
+      docs: [serverDoc],
+      defaultDocId: SERVER_DOC_PATH
+    })
+    showViewer()
+  } catch (error) {
+    console.error('[ReadMarkdownDebug] default document load failed', error)
+    alert(`默认文档加载失败：${error.message}`)
+  }
 }
 
 function hasFiles(event) {
@@ -161,3 +194,5 @@ window.addEventListener('drop', async (event) => {
     await renderFromFiles(event.dataTransfer.files)
   }
 })
+
+renderDefaultDoc()
