@@ -1,4 +1,1 @@
-import { createMarkdownEngine, createMarkdownDocsFromModules } from './engine.js'
-import './style.css'
-
-export { createMarkdownEngine, createMarkdownDocsFromModules }
+export { createMarkdownEngine, createMarkdownDocsFromModules } from './index.ts'

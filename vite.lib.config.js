@@ -1,21 +1,19 @@
 import { defineConfig } from 'vite'
-import { resolve } from 'path'
+import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
-  base: './',
+  publicDir: false,
   build: {
     outDir: 'dist-lib',
     emptyOutDir: false,
     lib: {
-      entry: resolve(__dirname, 'src/index.js'),
-      name: 'ReadMarkdownEngine',
+      entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
       formats: ['es'],
-      fileName: () => 'read-markdown-engine.mjs'
+      fileName: () => 'read-markdown-engine.mjs',
+      cssFileName: 'read-markdown-engine'
     },
     rollupOptions: {
-      output: {
-        inlineDynamicImports: true
-      }
+      output: { inlineDynamicImports: true }
     }
   }
 })

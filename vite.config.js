@@ -1,34 +1,18 @@
-﻿/*
- * @Author: yangjie
- * @Date: 2026-05-26 15:23:44
- * @LastEditors: yangjie 
- * @LastEditTime: 2026-09-16 14:36:48
- * @FilePath: \0-readmd\vite.config.js
- * @Description: 
- * 
- * Copyright (c) 2026 by bimcc, All Rights Reserved. 
- */
 import { defineConfig } from 'vite'
-import { resolve } from 'path'
+import { fileURLToPath } from 'node:url'
+import { markdownCatalog } from './scripts/markdownCatalog.js'
 
 export default defineConfig({
   base: './',
-  server: {
-    port: 8899,
-    fs: {
-      allow: ['..']
-    }
-  },
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, 'src')
-    }
-  },
+  plugins: [markdownCatalog()],
+  server: { port: 8899 },
+  preview: { port: 8899 },
   build: {
-    outDir: 'dist',
-    emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, 'index.html')
+      input: [
+        fileURLToPath(new URL('./index.html', import.meta.url)),
+        fileURLToPath(new URL('./test/demo.html', import.meta.url))
+      ]
     }
   }
 })

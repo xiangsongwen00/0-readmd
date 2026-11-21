@@ -7,31 +7,43 @@
   "module": "./dist-lib/read-markdown-engine.mjs",
   "exports": {
     ".": {
+      "types": "./dist-lib/types/index.d.ts",
       "import": "./dist-lib/read-markdown-engine.mjs"
-    }
+    },
+    "./style.css": "./dist-lib/read-markdown-engine.css",
+    "./dist-lib/read-markdown-engine.css": "./dist-lib/read-markdown-engine.css"
   },
   "scripts": {
-    "dev": "vite --open /",
-    "build": "npm run build:site && npm run build:lib && npm run copy:readme",
-    "build:site": "vite build",
-    "build:lib": "vite build --config vite.lib.config.js",
-    "copy:readme": "node -e \"const fs=require('fs');fs.copyFileSync('readme.md','dist/readme.md');console.log('copied readme.md -> dist/readme.md')\"",
+    "dev": "npm run build:lib && vite",
+    "net": "npm run build:lib && vite --host",
+    "build": "npm run build:site",
+    "build:site": "npm run build:lib && vite build",
+    "build:lib": "vite build --config vite.lib.config.js && tsc --declaration --emitDeclarationOnly --outDir dist-lib/types",
+    "lint": "tsc --noEmit",
     "preview": "vite preview",
-    "net": "vite --host --open /"
+    "start": "vite preview"
   },
   "devDependencies": {
-    "vite": "^7.2.4"
-  },
-  "dependencies": {
+    "vite": "^7.2.4",
+    "typescript": "~5.9.3",
     "html2canvas": "^1.4.1",
-    "jspdf": "^2.5.2",
-    "marked": "^17.0.1",
-    "mermaid": "^11.12.2"
+    "jspdf": "4.2.1",
+    "marked": "18.2.1",
+    "mermaid": "12.3.0",
+    "dompurify": "^3.3.0"
   },
   "directories": {
     "test": "test"
   },
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "files": [
+    "dist-lib/read-markdown-engine.mjs",
+    "dist-lib/read-markdown-engine.css",
+    "dist-lib/types"
+  ],
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  }
 }
