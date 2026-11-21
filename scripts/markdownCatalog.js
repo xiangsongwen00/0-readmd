@@ -107,13 +107,6 @@ export function markdownCatalog() {
 
   return {
     name: 'readmd-catalog',
-    configureServer: middleware,
-    configurePreviewServer: middleware,
-    async generateBundle() {
-      const catalog = await Promise.all(roots.map(async ({ label, dir }) => ({
-        label, path: displayPath(dir), docs: await sortedDocs(dir)
-      })))
-      this.emitFile({ type: 'asset', fileName: 'readmd-docs.json', source: JSON.stringify(catalog) })
-    }
+    configureServer: middleware
   }
 }

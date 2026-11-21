@@ -1,11 +1,12 @@
 ﻿import { createMarkdownEngine } from '../dist-lib/read-markdown-engine.mjs'
 import '../dist-lib/read-markdown-engine.css'
+import { fetchStaticDocs } from './staticDocs.js'
 
 const picker = document.createElement('div')
 picker.className = 'readmd-directory'
 picker.innerHTML = `
   <form>
-    <input type="text" placeholder="指定服务端文档目录" aria-label="服务端文档目录" value="public/mdData">
+    <input type="text" placeholder="指定服务端文档目录" aria-label="服务端文档目录" value="mdData">
     <button type="submit">读取</button>
   </form>
   <select aria-label="快捷目录" hidden></select>
@@ -19,31 +20,16 @@ const app = document.querySelector('#app')
 const engine = createMarkdownEngine({ container: app, directoryPicker: picker, windowEvents: true })
 
 let request
-let staticCatalog
 async function fetchDirectory(path, signal) {
-  if (!staticCatalog) {
+  if (import.meta.env.DEV) {
     const url = new URL('api/docs', document.baseURI)
-    url.searchParams.set('dir', path)
+    url.searchParams.set('dir', path === 'mdData' ? 'public/mdData' : path)
     const response = await fetch(url, { signal, headers: { 'X-ReadMD-Directory': '1' } })
-    if (response.headers.get('Content-Type')?.includes('application/json')) {
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || '目录读取失败')
-      return data
-    }
-    const catalog = await fetch(new URL('readmd-docs.json', document.baseURI), { signal })
-    if (!catalog.ok) throw new Error('无法加载文档目录')
-    staticCatalog = await catalog.json()
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error || '目录读取失败')
+    return data
   }
-
-  const entry = staticCatalog.find(directory => directory.path === path)
-  if (!entry) throw new Error('静态 demo 中没有该目录，请选择快捷目录或导入本地文件。')
-  return {
-    dirPath: entry.path,
-    candidates: staticCatalog.map(directory => ({
-      label: directory.label, path: directory.path, count: directory.docs.length
-    })),
-    docs: entry.docs
-  }
+  return fetchStaticDocs(path, signal)
 }
 
 async function showDirectory(path) {
@@ -53,7 +39,7 @@ async function showDirectory(path) {
   status.textContent = '正在读取目录…'
   submit.disabled = true
   try {
-    const directory = await fetchDirectory(path || 'public/mdData', pending.signal)
+    const directory = await fetchDirectory(path || 'mdData', pending.signal)
     if (pending.signal.aborted) return
     const docs = directory.docs.map(doc => ({
       ...doc,
@@ -63,7 +49,7 @@ async function showDirectory(path) {
     engine.setDocs(docs, preferred?.id || docs[0]?.id)
     input.value = directory.dirPath
     shortcuts.replaceChildren(new Option('快捷目录', ''), ...directory.candidates.map(item =>
-      new Option(item.label + ' (' + item.count + ')', item.path)))
+      new Option(item.count === undefined ? item.label : item.label + ' (' + item.count + ')', item.path)))
     shortcuts.value = directory.dirPath
     shortcuts.hidden = directory.candidates.length === 0
     status.textContent = directory.dirPath

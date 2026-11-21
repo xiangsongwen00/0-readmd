@@ -12,16 +12,15 @@
 在 http://localhost:8899 打开。开发命令先打包 lib，demo 直接从 dist-lib 引用 ESM 和 CSS。修改 lib 源码后，重新执行 npm run build:lib 并刷新 demo。
 
     npm run build
-    npm run preview
 
-构建后的 demo 在 dist/，可直接部署到静态网站或子目录。默认加载 public/mdData 中的 Markdown。
+构建后的 demo 在 `dist/`。静态版运行时读取网页同级 `mdData/` 中的 Markdown。构建产物只有应用文件，文档目录由部署端维护。
 
-切到「文档列表」可以输入目录、从快捷目录切换，或通过页面工具栏导入本地文件或文件夹。从 localhost 打开开发或预览页面时，可以直接输入本机目录。局域网访问时，使用 MD_DOCS_DIR 注册项目外的目录，多个目录以分号分隔。在 Windows PowerShell 中可按下面的方式设置。
+将 `dist/` 中的应用文件部署到 `D:\0-myNet\readme`。将 Markdown 文件及其相对路径引用的资源放在该站点的 `mdData/` 中。静态服务器需要对该目录启用目录浏览，并能通过 HTTP 访问 Markdown 文件。在部署目录增删、改名或修改文件后，刷新网页，或在「文档列表」点击「读取」即可更新。
+
+切到「文档列表」还可以输入站点内的相对目录，或通过工具栏导入本地文件和文件夹。使用 `npm run dev` 开发时，默认读取仓库的 `public/mdData/`，从 localhost 打开开发页面时也可以直接输入本机目录。局域网访问开发服务时，使用 `MD_DOCS_DIR` 注册项目外的目录，多个目录以分号分隔。在 Windows PowerShell 中可按下面的方式设置。
 
     $env:MD_DOCS_DIR = 'D:\docs;D:\notes'
     npm run dev
-
-纯静态部署读取构建时生成的目录清单。构建前设置 MD_DOCS_DIR 可把指定目录的 Markdown 收录进 demo，记得只选择适合公开部署的文档。放在 public/ 下的资源可随 demo 一起部署。
 
 ## 单独构建 lib
 

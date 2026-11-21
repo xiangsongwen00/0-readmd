@@ -8,6 +8,7 @@ export default defineConfig({
   server: { port: 8899 },
   preview: { port: 8899 },
   build: {
+    copyPublicDir: false,
     rollupOptions: {
       input: [
         fileURLToPath(new URL('./index.html', import.meta.url)),
